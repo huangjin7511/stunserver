@@ -1,43 +1,41 @@
-name: stunserver-FreeBSD
+name: Build STUNServer for FreeBSD
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: '请填写构建vnts的vnt-dev/vnts分支或提交记录，默认主分支master'
-        required: true
-        default: 'master'
-  
-env:
-  CARGO_TERM_COLOR: always
-  BRANCH: "${{ github.event.inputs.tag }}"
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
 jobs:
- build:
-    runs-on: ubuntu-latest
+  build-freebsd:
+    runs-on: freebsd-latest  # 使用 GitHub 官方提供的 FreeBSD 环境[6,8](@ref)
     steps:
-      - name: Checkout code
+      # 1. 检出代码
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          repository: huangjin7511/stunserver
-          ref: ${{ env.BRANCH }} #默认使用master分支
-      - name: 安装编译环境
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu qemu-user-static binfmt-support build-essential
-          rustup target add x86_64-unknown-freebsd
-          #sed -i 's/const CLOCK_ID: ClockId = ClockId::CLOCK_BOOTTIME;/const CLOCK_ID: ClockId = ClockId::CLOCK_MONOTONIC;/g' ./lib/boringtun/src/sleepyinstant/unix.rs
-      - name: 安装 cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: 交叉编译 FreeBSD 的动态库 vnts 
-        env:
-          RUSTFLAGS: "-C strip=symbols"
+      # 2. 安装编译依赖
+      - name: Install dependencies
         run: |
-          cross build --target x86_64-unknown-freebsd --release --features ring-cipher,web
-          file target/x86_64-unknown-freebsd/release/stunserver
+          sudo pkg update -y
+          sudo pkg install -y gmake gcc openssl boost-libs
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      # 3. 编译源码
+      - name: Build STUNServer
+        run: |
+          gmake  # 使用 GNU Make 替代 FreeBSD 默认的 make[4](@ref)
+          ls -lh stunserver stunclient
+
+      # 4. 打包产物（针对 FreeBSD 优化）
+      - name: Package binaries
+        run: |
+          mkdir -p artifacts
+          cp stunserver stunclient artifacts/
+          tar czf stunserver-freebsd.tar.gz -C artifacts .
+
+      # 5. 上传编译产物
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
         with:
-          name: stunserver
-          path: target/x86_64-unknown-freebsd/release/stunserver
+          name: stunserver-freebsd-bin
+          path: stunserver-freebsd.tar.gz
