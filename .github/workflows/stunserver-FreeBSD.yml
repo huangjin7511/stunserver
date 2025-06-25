@@ -25,7 +25,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y qemu qemu-user-static binfmt-support build-essential
           rustup target add x86_64-unknown-freebsd
-          sed -i 's/const CLOCK_ID: ClockId = ClockId::CLOCK_BOOTTIME;/const CLOCK_ID: ClockId = ClockId::CLOCK_MONOTONIC;/g' ./lib/boringtun/src/sleepyinstant/unix.rs
+          #sed -i 's/const CLOCK_ID: ClockId = ClockId::CLOCK_BOOTTIME;/const CLOCK_ID: ClockId = ClockId::CLOCK_MONOTONIC;/g' ./lib/boringtun/src/sleepyinstant/unix.rs
       - name: 安装 cross
         run: cargo install cross --git https://github.com/cross-rs/cross
 
@@ -34,10 +34,10 @@ jobs:
           RUSTFLAGS: "-C strip=symbols"
         run: |
           cross build --target x86_64-unknown-freebsd --release --features ring-cipher,web
-          file target/x86_64-unknown-freebsd/release/vnts
+          file target/x86_64-unknown-freebsd/release/stunserver
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: stunserver
-          path: target/x86_64-unknown-freebsd/release/vnts
+          path: target/x86_64-unknown-freebsd/release/stunserver
